@@ -1,11 +1,11 @@
 ;;; file-fns.el --- functions for querying about or acting on files
 
-;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97, 98, 1999, 2006 Noah S. Friedman
+;; Copyright (C) 1991, 92, 93, 94, 95, 96, 97, 98, 99, 06, 2010 Noah S. Friedman
 
 ;; Author: Noah Friedman <friedman@splode.com>
 ;; Maintainer: friedman@splode.com
 
-;; $Id: file-fns.el,v 1.6 2006/05/16 02:24:26 friedman Exp $
+;; $Id: file-fns.el,v 1.7 2010/02/22 07:12:01 friedman Exp $
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -18,9 +18,7 @@
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with this program; if not, you can either send email to this
-;; program's maintainer or write to: The Free Software Foundation,
-;; Inc.; 51 Franklin Street, Fifth Floor; Boston, MA 02110-1301, USA.
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 ;;; Code:
@@ -54,6 +52,23 @@ This function should be added to `before-save-hook' to be effective."
 
 ;;(add-hook 'before-save-hook 'nf-backup-buffer-if-mtime-elapsed)
 
+
+(defvar nf-ro-backup-directory-alist
+  `(("." . ,(format "~/.emacs.d/file-backups/%s" (system-name))))
+  "Where to store backups for files whose directory is not writable by the current user.
+This enables one to keep backups of system files instead of having all
+failed backup attempts go to the single file \"~/%backup%~\".")
+
+(defadvice make-backup-file-name-1 (around file-fns:ro-backup-directory activate)
+  "If the directory for FILE cannot be written to by the current user, put
+the backup in the directory specified by `nf-ro-backup-directory-alist'
+\(which see\)."
+  (if (file-writable-p (file-name-directory (ad-get-arg 0)))
+      ad-do-it
+    (let ((backup-directory-alist nf-ro-backup-directory-alist))
+      ad-do-it)))
+
+
 ;;;###autoload
 (defun file-in-pathlist-p (file path)
   "Return path of FILE if FILE is found anywhere in PATH.
@@ -124,7 +139,6 @@ If the file is smaller than N, just insert the entire file."
               (yes-or-no-p "This buffer is modified; make autosave? "))
          (make-local-variable 'kill-buffer-hook)
          (add-hook 'kill-buffer-hook
-                   (function
                     (lambda ()
                       ;; Do an auto save, then set the auto save file name
                       ;; to nil to prevent kill-buffer from deleting it.
@@ -132,9 +146,9 @@ If the file is smaller than N, just insert the entire file."
                       ;; seems not to work.
                       (if (< (emacs-version-major) 19)
                           (do-auto-save)
-                        ;; In emacs 19, just autosave the current buffer.
+                        ;; In emacs 19 or later, just autosave the current buffer.
                         (do-auto-save nil t))
-                      (setq buffer-auto-save-file-name nil)))))
+                      (setq buffer-auto-save-file-name nil))))
         ;; The kill-buffer-query-functions have the semantics that if any
         ;; return nil, then do not kill the buffer.  If they all return t,
         ;; then do kill.
