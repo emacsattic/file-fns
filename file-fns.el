@@ -4,7 +4,7 @@
 ;; Created: 1999
 ;; Public domain.
 
-;; $Id: file-fns.el,v 1.8 2015/01/26 01:16:29 friedman Exp $
+;; $Id: file-fns.el,v 1.9 2017/09/20 06:22:45 friedman Exp $
 
 ;;; Commentary:
 ;;; Code:
@@ -53,6 +53,23 @@ the backup in the directory specified by `nf-ro-backup-directory-alist'
       ad-do-it
     (let ((backup-directory-alist nf-ro-backup-directory-alist))
       ad-do-it)))
+
+(defadvice make-auto-save-file-name (after file-fns:ro-autosave-directory activate)
+  "If directory for regular autosave is not writable, autosave it in ~/.emacs.d.
+More specifically, create a fully-qualified autosave file name
+in ~/.emacs.d/file-backups/(system-name)/ ."
+  (let* ((asf (file-name-nondirectory ad-return-value))
+         (dir (file-name-directory ad-return-value)))
+    (unless (file-writable-p dir)
+      (let ((i 0))
+        (while (< i (length dir))
+          (if (char-equal (aref dir i) ?/)
+              (aset dir i ?!))
+          (setq i (1+ i))))
+      (setq ad-return-value
+            (expand-file-name
+             (format "~/.emacs.d/file-backups/%s/#%s%s"
+                     (system-name) dir (substring asf 1)))))))
 
 
 ;;;###autoload
